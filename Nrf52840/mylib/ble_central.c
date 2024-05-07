@@ -51,12 +51,12 @@ int compareStrings(const char *str1, const char *str2) {
 
 
 void data_redirect(const uint8_t *data_ptr){ 
-    printk("DEVICE FOUND\n"); 
+    // printk("DEVICE FOUND\n"); 
     // char buf[64];
     uint16_t temperature = (uint16_t)((data_ptr[4] << 8) | data_ptr[5]);
     uint16_t co2 = (uint16_t)((data_ptr[6] << 8) | data_ptr[7]);
     uint16_t sound = data_ptr[3];
-    printk("JSON{'Temp': %u, 'Co2': %u, 'Sound': %u}JSON", temperature, co2, sound); 
+    printk("JSON{'Temp': %u, 'Co2': %u, 'Sound': %u}JSON\n", temperature, co2, sound); 
 }
 
 
@@ -78,7 +78,6 @@ static bool eir_found(struct bt_data *mfg_data, void *user_data)
 	
 	// Access data
     const uint8_t *data_ptr = mfg_data->data;
-    //printk("data: %02X, %02X, %02X\n",data_ptr[0], data_ptr[1], data_ptr[2] );
     if (data_ptr[1] == 0x73){ 
         data_redirect(data_ptr); 
     }

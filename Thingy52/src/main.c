@@ -236,10 +236,10 @@ static void do_main(const struct device *dev, const struct device *temp_dev )
 	}
 	gpio_pin_toggle_dt(&led);
 
-	k_msleep(1000);
+	k_msleep(500);
 	gpio_pin_toggle_dt(&led);
 	err = bt_le_adv_stop();
-	k_msleep(1000);
+	k_msleep(100);
 	
 }
 
