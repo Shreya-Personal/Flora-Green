@@ -26,10 +26,10 @@ FLOWER_PETAL_LEVEL = 0
 FLOWER_LED_LEVEL = 0
   
 
-# ## Serial Connection 
-# serialPort = serial.Serial(port = "/dev/ttyACM0", baudrate=115200,
-#                            bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE)
-# serialString = ""                           # Used to hold data coming over UART
+## Serial Connection 
+serialPort = serial.Serial(port = "/dev/ttyACM0", baudrate=115200,
+                           bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE)
+serialString = ""                           # Used to hold data coming over UART
 
 ##MQTT Broker details  
 broker = 'csse4011-iot.zones.eait.uq.edu.au'
@@ -38,13 +38,21 @@ topic = "s4580286"
 # Generate a Client ID with the subscribe prefix.
 client_id = f'subscribe-{random.randint(0, 100)}'
 
-## Globals 
+## Globals
+# Measurements  
 temp_meas = 0.00 
 co2_meas= 0.00
 sound_meas = 0.00
+
+# Thresholds 
 temp_thres = 35.0
 co2_thres = 500.0
 sound_thres = 10.0
+temp_min_thres = 0 
+co2_min_thres = 0
+sound_min_thres = 0
+
+# Status 
 petal_status = 0
 b_status = 0
 
@@ -113,8 +121,8 @@ def petal_decision_logic(temp, co2, sound):
     int: 1 if petals should be open, 0 if petals should be closed.
     """
     # print("TEMP", temp, co2, sound)
-    global temp_thres, co2_thres, sound_thres
-    if temp > temp_thres or co2 > co2_thres or sound > sound_thres:
+    global temp_thres, co2_thres, sound_thres, temp_min_thres, sound_min_thres, co2_min_thres
+    if temp > temp_thres or co2 > co2_thres or sound > sound_thres or temp < temp_min_thres or sound < sound_min_thres or co2 < co2_min_thres:
         return 1  # Petals closed
     else:
         return 0  # Petals open
@@ -152,7 +160,7 @@ def publish(client):
     msg_count = 1
     while True:
         time.sleep(0.5)
-        msg = '{time":'+str(round(time.time()))+',"petal":' + str(petal) + ',"b":' + str(b) +'}'
+        msg = '{time":'+str(round(time.time()))+',"petal":' + str(petal_status) + ',"b":' + str(b_status) +'}'
         result = client.publish(topic, msg)
         # result: [0, 1]
         status = result[0]
@@ -218,7 +226,7 @@ def main():
     Returns:
     None
     """
-    global temp_meas, co2_meas, sound_meas, petal_status, b_status, temp_thres, co2_thres, sound_thres
+    global temp_meas, co2_meas, sound_meas, petal_status, b_status, temp_thres, co2_thres, sound_thres, temp_min_thres, sound_min_thres, co2_min_thres
     serialRec = 0 ################# REMEMBER TO CHANGE TO 0
 
     # Create the main window
@@ -230,28 +238,42 @@ def main():
     root.configure(bg='#B2FFB5')  # Light green color
     left_frame = Frame(root, bg='#B2FFB5')
     right_frame = Frame(root, bg='#B2FFB5')  # Light green color
-    left_frame.pack(side=LEFT, fill=Y)
+    left_frame.pack(side=LEFT, fill=BOTH, expand=True) 
     right_frame.pack(side=RIGHT, fill=Y)
 
-    # Left Frame: Sliders for settings
-    slider_frame = Frame(left_frame, bg='#B2FFB5')
-    slider_frame.pack(side=TOP, pady=20, padx=10)  # Added padx for right padding
-    min_temp = Scale(slider_frame, from_=MIN_TEMP, to=MAX_TEMP, label="Min Temp", orient=HORIZONTAL, length=300)  # Adjusted length
-    min_temp.pack(side=TOP)
-    max_temp = Scale(slider_frame, from_=MIN_TEMP, to=MAX_TEMP, label="Max Temp", orient=HORIZONTAL, length=300)  # Adjusted length
-    max_temp.pack(side=TOP)
-    min_sound = Scale(slider_frame, from_=MIN_SOUND, to=MAX_SOUND, label="Min Sound", orient=HORIZONTAL, length=300)  # Adjusted length
-    min_sound.pack(side=TOP)
-    max_sound = Scale(slider_frame, from_=MIN_SOUND, to=MAX_SOUND, label="Max Sound", orient=HORIZONTAL, length=300)  # Adjusted length
-    max_sound.pack(side=TOP)
-    min_co2 = Scale(slider_frame, from_=MIN_CO2, to=MAX_CO2, label="Min CO2", orient=HORIZONTAL, length=300)  # Adjusted length
-    min_co2.pack(side=TOP)
-    max_co2 = Scale(slider_frame, from_=MIN_CO2, to=MAX_CO2, label="Max CO2", orient=HORIZONTAL, length=300)  # Adjusted length
-    max_co2.pack(side=TOP)
+    # Frame for Temperature Sliders
+    temp_frame = Frame(left_frame, bg='#E1FFE4', bd=2, relief="ridge")  # Light green color, border
+    temp_frame.pack(side=TOP, padx=20, pady=10, fill=BOTH, expand=True)  # Fill both x and y directions, expand to fill available space
+    Label(temp_frame, text="Temperature Settings", bg='#E1FFE4').pack(side=TOP, padx=10, pady=5)  # Label for the box
+
+    min_temp = Scale(temp_frame, from_=MIN_TEMP, to=MAX_TEMP, label="Min Temp", orient=HORIZONTAL, length=300)  # Adjusted length
+    min_temp.pack(side=TOP, padx=10, pady=5)
+    max_temp = Scale(temp_frame, from_=MIN_TEMP, to=MAX_TEMP, label="Max Temp", orient=HORIZONTAL, length=300)  # Adjusted length
+    max_temp.pack(side=TOP, padx=10, pady=5)
+
+    # Frame for CO2 Sliders
+    co2_frame = Frame(left_frame, bg='#E1FFE4', bd=2, relief="ridge")  # Light green color, border
+    co2_frame.pack(side=TOP, padx=20, pady=10, fill=BOTH, expand=True)  # Fill both x and y directions, expand to fill available space
+    Label(co2_frame, text="CO2 Settings", bg='#E1FFE4').pack(side=TOP, padx=10, pady=5)  # Label for the box
+
+    min_co2 = Scale(co2_frame, from_=MIN_CO2, to=MAX_CO2, label="Min CO2", orient=HORIZONTAL, length=300)  # Adjusted length
+    min_co2.pack(side=TOP, padx=10, pady=5)
+    max_co2 = Scale(co2_frame, from_=MIN_CO2, to=MAX_CO2, label="Max CO2", orient=HORIZONTAL, length=300)  # Adjusted length
+    max_co2.pack(side=TOP, padx=10, pady=5)
+
+    # Frame for Sound Sliders
+    sound_frame = Frame(left_frame, bg='#E1FFE4', bd=2, relief="ridge")  # Light green color, border
+    sound_frame.pack(side=TOP, padx=20, pady=10, fill=BOTH, expand=True)  # Fill both x and y directions, expand to fill available space
+    Label(sound_frame, text="Sound Settings", bg='#E1FFE4').pack(side=TOP, padx=10, pady=5)  # Label for the box
+
+    min_sound = Scale(sound_frame, from_=MIN_SOUND, to=MAX_SOUND, label="Min Sound", orient=HORIZONTAL, length=300)  # Adjusted length
+    min_sound.pack(side=TOP, padx=10, pady=5)
+    max_sound = Scale(sound_frame, from_=MIN_SOUND, to=MAX_SOUND, label="Max Sound", orient=HORIZONTAL, length=300)  # Adjusted length
+    max_sound.pack(side=TOP, padx=10, pady=5)
 
     # Right Frame: Sensor readings and status
     sensor_frame = Frame(right_frame, bg='#B2FFB5', bd=6, relief="ridge")
-    sensor_frame.pack(side=TOP, pady=120 ,  padx=40)
+    sensor_frame.pack(side=TOP, pady=120 ,  padx=20)
     temp = Label(sensor_frame, text="TEMPERATURE: 0 - 0 degC", bg='#B2FFB5', padx=20, pady=20)
     temp.pack(side=TOP)
     sound = Label(sensor_frame, text="SOUND LEVEL: 0 - 0 dB", bg='#B2FFB5',padx=20, pady=20)
@@ -272,9 +294,9 @@ def main():
     sound_text = "SOUND LEVEL: {sound} dB"
     petal_text = "FLOWER PETAL STATUS: {petal}"
     ##serialPort.write(b"view -a\n")
-    #kf = initialize_kalman_filter(temp_meas,co2_meas,sound_meas)
+    # kf = initialize_kalman_filter(temp_meas,co2_meas,sound_meas)
     while(1):
-        time.sleep(1)
+        time.sleep(.1)
         # Wait until there is data waiting in the serial buffer and update values
         if(serialPort.in_waiting > 0):
 
@@ -319,18 +341,18 @@ def main():
             sound.config(text=sound_text.format(sound=round(x_filtered[1, 0],2)))
             co2.config(text=co2_text.format(co2=round(x_filtered[2, 0])))
 
-            # check if current conditions are suitable for flower
-            # TODO needs checks on thresholds, min not above max
-            # PETALS
+            #Update Vars
             temp_thres = max_temp.get()
+            temp_min_thres = min_temp.get()
             sound_thres = max_sound.get()
+            sound_min_thres = min_sound.get()
             co2_thres = max_co2.get()
+            co2_min_thres = min_co2.get()
 
             # update status labels
-            petal.config(text=petal_text.format(petal=FLOWER_PETAL_LEVEL))
-            led.config(text=led_text.format(led=FLOWER_LED_LEVEL))
+            petal.config(text=petal_text.format(petal=petal_status))
+            led.config(text=led_text.format(led=b_status))
             
-            print("TEMP:", temp_meas, co2_meas, sound_meas)
             root.update()
 
             # Publish to mqtt 
