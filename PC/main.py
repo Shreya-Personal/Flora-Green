@@ -10,10 +10,26 @@ from filterpy.kalman import KalmanFilter ## Kalman Initialisation
 from filterpy.common import Q_discrete_white_noise
 import numpy as np
 
-## Serial Connection 
-serialPort = serial.Serial(port = "/dev/ttyACM0", baudrate=115200,
-                           bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE)
-serialString = ""                           # Used to hold data coming over UART
+import tkinter as tk
+from tkinter import *
+
+MIN_TEMP = 0
+MAX_TEMP = 50
+
+MIN_SOUND = 0
+MAX_SOUND = 100
+
+MIN_CO2 = 0
+MAX_CO2 = 1000
+
+FLOWER_PETAL_LEVEL = 0
+FLOWER_LED_LEVEL = 0
+  
+
+# ## Serial Connection 
+# serialPort = serial.Serial(port = "/dev/ttyACM0", baudrate=115200,
+#                            bytesize=8, timeout=2, stopbits=serial.STOPBITS_ONE)
+# serialString = ""                           # Used to hold data coming over UART
 
 ##MQTT Broker details  
 broker = 'csse4011-iot.zones.eait.uq.edu.au'
@@ -23,14 +39,18 @@ topic = "s4580286"
 client_id = f'subscribe-{random.randint(0, 100)}'
 
 ## Globals 
-temp = 0.00 
-co2 = 0.00
-sound = 0.00
+temp_meas = 0.00 
+co2_meas= 0.00
+sound_meas = 0.00
 temp_thres = 35.0
 co2_thres = 500.0
 sound_thres = 10.0
-petal = 0
-b = 0
+petal_status = 0
+b_status = 0
+
+temp_meas = 30.00 
+co2_meas= 400.00
+sound_meas = 10.00
 
 def initialize_kalman_filter(temp,co2,sound):
     """
@@ -92,7 +112,7 @@ def petal_decision_logic(temp, co2, sound):
     Returns:
     int: 1 if petals should be open, 0 if petals should be closed.
     """
-    print("TEMP", temp, co2, sound)
+    # print("TEMP", temp, co2, sound)
     global temp_thres, co2_thres, sound_thres
     if temp > temp_thres or co2 > co2_thres or sound > sound_thres:
         return 1  # Petals closed
@@ -198,11 +218,63 @@ def main():
     Returns:
     None
     """
-    global temp, co2, sound, petal, b
-    serialRec = 0
-    ##serialPort.write(b"view -a\n")
-    while(1):
+    global temp_meas, co2_meas, sound_meas, petal_status, b_status, temp_thres, co2_thres, sound_thres
+    serialRec = 0 ################# REMEMBER TO CHANGE TO 0
 
+    # Create the main window
+    root = tk.Tk()
+    root.geometry("600x600")
+    root.title("CSSE4011 Mechanical Flower Monitor")
+
+    # Set background colors for frames
+    root.configure(bg='#B2FFB5')  # Light green color
+    left_frame = Frame(root, bg='#B2FFB5')
+    right_frame = Frame(root, bg='#B2FFB5')  # Light green color
+    left_frame.pack(side=LEFT, fill=Y)
+    right_frame.pack(side=RIGHT, fill=Y)
+
+    # Left Frame: Sliders for settings
+    slider_frame = Frame(left_frame, bg='#B2FFB5')
+    slider_frame.pack(side=TOP, pady=20, padx=10)  # Added padx for right padding
+    min_temp = Scale(slider_frame, from_=MIN_TEMP, to=MAX_TEMP, label="Min Temp", orient=HORIZONTAL, length=300)  # Adjusted length
+    min_temp.pack(side=TOP)
+    max_temp = Scale(slider_frame, from_=MIN_TEMP, to=MAX_TEMP, label="Max Temp", orient=HORIZONTAL, length=300)  # Adjusted length
+    max_temp.pack(side=TOP)
+    min_sound = Scale(slider_frame, from_=MIN_SOUND, to=MAX_SOUND, label="Min Sound", orient=HORIZONTAL, length=300)  # Adjusted length
+    min_sound.pack(side=TOP)
+    max_sound = Scale(slider_frame, from_=MIN_SOUND, to=MAX_SOUND, label="Max Sound", orient=HORIZONTAL, length=300)  # Adjusted length
+    max_sound.pack(side=TOP)
+    min_co2 = Scale(slider_frame, from_=MIN_CO2, to=MAX_CO2, label="Min CO2", orient=HORIZONTAL, length=300)  # Adjusted length
+    min_co2.pack(side=TOP)
+    max_co2 = Scale(slider_frame, from_=MIN_CO2, to=MAX_CO2, label="Max CO2", orient=HORIZONTAL, length=300)  # Adjusted length
+    max_co2.pack(side=TOP)
+
+    # Right Frame: Sensor readings and status
+    sensor_frame = Frame(right_frame, bg='#B2FFB5', bd=6, relief="ridge")
+    sensor_frame.pack(side=TOP, pady=120 ,  padx=40)
+    temp = Label(sensor_frame, text="TEMPERATURE: 0 - 0 degC", bg='#B2FFB5', padx=20, pady=20)
+    temp.pack(side=TOP)
+    sound = Label(sensor_frame, text="SOUND LEVEL: 0 - 0 dB", bg='#B2FFB5',padx=20, pady=20)
+    sound.pack(side=TOP)
+    co2 = Label(sensor_frame, text="CO2 LEVEL: 0 - 0 ppm", bg='#B2FFB5',padx=20, pady=20)
+    co2.pack(side=TOP)
+
+    status_frame = Frame(right_frame, bg='#B2FFB5')
+    status_frame.pack(side=BOTTOM, pady=20)
+    petal = Label(status_frame, text="FLOWER PETAL STATUS: 0", bg='#B2FFB5')
+    petal.pack(side=TOP)
+    led = Label(status_frame, text="FLOWER LED STATUS: 0", bg='#B2FFB5')
+    led.pack(side=TOP)
+
+    temp_text = "TEMPERATURE: {temp} degC"
+    led_text = "FLOWER LED STATUS: {led}"
+    co2_text = "CO2 LEVEL: {co2} ppm"
+    sound_text = "SOUND LEVEL: {sound} dB"
+    petal_text = "FLOWER PETAL STATUS: {petal}"
+    ##serialPort.write(b"view -a\n")
+    #kf = initialize_kalman_filter(temp_meas,co2_meas,sound_meas)
+    while(1):
+        time.sleep(1)
         # Wait until there is data waiting in the serial buffer and update values
         if(serialPort.in_waiting > 0):
 
@@ -219,9 +291,9 @@ def main():
                 json_object = json.loads(str(json_string))
 
                 #access data in dict
-                temp = int(round(json_object["Temp"]/10))
-                co2 = json_object["Co2"]
-                sound = json_object["Sound"]
+                temp_meas = int(round(json_object["Temp"]/10))
+                co2_meas = json_object["Co2"]
+                sound_meas = json_object["Sound"]
                 if serialRec == 0: 
                     kf = initialize_kalman_filter(temp,co2,sound)
                     serialRec = 1
@@ -232,15 +304,34 @@ def main():
 
         if serialRec == 1:
             #Process data  
-            x_filtered = kalman_filter_update(kf, temp, co2, sound)
+            x_filtered = kalman_filter_update(kf, temp_meas, co2_meas, sound_meas)
 
             # Determine petal status based on Kalman filter output
-            petal = petal_decision_logic(x_filtered[0, 0], x_filtered[1, 0], x_filtered[2, 0])
+            petal_status = petal_decision_logic(x_filtered[0, 0], x_filtered[1, 0], x_filtered[2, 0])
 
             #Second - define b based on threshold 
-            b = map_co2_to_scale(co2, co2_thres)
-            msg = '{time":'+str(round(time.time()))+',"petal":' + str(petal) + ',"b":' + str(b) +'}'
+            b_status = map_co2_to_scale(co2_meas, co2_thres)
+            msg = '{time":'+str(round(time.time()))+',"petal":' + str(petal_status) + ',"b":' + str(b_status) +'}'
             print(msg)
+            
+            # update sensor measurement labels
+            temp.config(text=temp_text.format(temp=round(x_filtered[0, 0],2)))
+            sound.config(text=sound_text.format(sound=round(x_filtered[1, 0],2)))
+            co2.config(text=co2_text.format(co2=round(x_filtered[2, 0])))
+
+            # check if current conditions are suitable for flower
+            # TODO needs checks on thresholds, min not above max
+            # PETALS
+            temp_thres = max_temp.get()
+            sound_thres = max_sound.get()
+            co2_thres = max_co2.get()
+
+            # update status labels
+            petal.config(text=petal_text.format(petal=FLOWER_PETAL_LEVEL))
+            led.config(text=led_text.format(led=FLOWER_LED_LEVEL))
+            
+            print("TEMP:", temp_meas, co2_meas, sound_meas)
+            root.update()
 
             # Publish to mqtt 
             client = connect_mqtt()
