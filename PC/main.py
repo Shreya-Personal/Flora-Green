@@ -160,7 +160,7 @@ def publish(client):
     msg_count = 1
     while True:
         time.sleep(0.5)
-        msg = '{time":'+str(round(time.time()))+',"petal":' + str(petal_status) + ',"b":' + str(b_status) +'}'
+        msg = '{time":'+str(round(time.time()))+',"p":' + str(petal_status) + ',"b":' + str(b_status) +'}'
         result = client.publish(topic, msg)
         # result: [0, 1]
         status = result[0]
@@ -198,8 +198,8 @@ def map_co2_to_scale(co2_value, co2_threshold):
     c = 10-grad*(co2_threshold-scale_half)
     mapped_value = round(co2_value*grad + c)
     
-    if (mapped_value > 10):
-        mapped_value = 10
+    if (mapped_value > 9):
+        mapped_value = 9
     if (mapped_value < 0): 
         mapped_value = 0
 
@@ -229,6 +229,10 @@ def main():
     global temp_meas, co2_meas, sound_meas, petal_status, b_status, temp_thres, co2_thres, sound_thres, temp_min_thres, sound_min_thres, co2_min_thres
     serialRec = 0 ################# REMEMBER TO CHANGE TO 0
 
+    # MQTT Connect 
+    client = connect_mqtt()
+
+    ## GUI INITIALISATION
     # Create the main window
     root = tk.Tk()
     root.geometry("600x600")
@@ -299,30 +303,31 @@ def main():
         time.sleep(.1)
         # Wait until there is data waiting in the serial buffer and update values
         if(serialPort.in_waiting > 0):
-
             # Read data out of the buffer until a carraige return / new line is found
             serialString = serialPort.readline()
             # Print the contents of the serial data
             buf = serialString.decode('Ascii')
             input_string = replace_quotes(str(buf))
             json_string = 0
-            
-            if "JSON" in input_string:
-                json_string = input_string.split("JSON")[1]
-                print(json_string)
-                json_object = json.loads(str(json_string))
+            try: 
+                if "JSON" in input_string:
+                    json_string = input_string.split("JSON")[1]
+                    print(json_string)
+                    json_object = json.loads(str(json_string))
 
-                #access data in dict
-                temp_meas = int(round(json_object["Temp"]/10))
-                co2_meas = json_object["Co2"]
-                sound_meas = json_object["Sound"]
-                if serialRec == 0: 
-                    kf = initialize_kalman_filter(temp,co2,sound)
+                    #access data in dict
+                    temp_meas = int(round(json_object["Temp"]/10))
+                    co2_meas = json_object["Co2"]
+                    sound_meas = json_object["Sound"]
+                    if serialRec == 0: 
+                        kf = initialize_kalman_filter(temp_meas,co2_meas,sound_meas)
+                        serialRec = 1
+                    time.sleep(.01)
                     serialRec = 1
-                time.sleep(.01)
-            else: 
+            except: 
                 #print(buf)
                 time.sleep(.01)
+                serialRec = 0
 
         if serialRec == 1:
             #Process data  
@@ -332,14 +337,14 @@ def main():
             petal_status = petal_decision_logic(x_filtered[0, 0], x_filtered[1, 0], x_filtered[2, 0])
 
             #Second - define b based on threshold 
-            b_status = map_co2_to_scale(co2_meas, co2_thres)
+            b_status = map_co2_to_scale(x_filtered[1, 0], co2_thres)
             msg = '{time":'+str(round(time.time()))+',"petal":' + str(petal_status) + ',"b":' + str(b_status) +'}'
             print(msg)
             
             # update sensor measurement labels
             temp.config(text=temp_text.format(temp=round(x_filtered[0, 0],2)))
-            sound.config(text=sound_text.format(sound=round(x_filtered[1, 0],2)))
-            co2.config(text=co2_text.format(co2=round(x_filtered[2, 0])))
+            sound.config(text=sound_text.format(sound=round(x_filtered[2, 0],2)))
+            co2.config(text=co2_text.format(co2=round(x_filtered[1, 0])))
 
             #Update Vars
             temp_thres = max_temp.get()
@@ -352,11 +357,9 @@ def main():
             # update status labels
             petal.config(text=petal_text.format(petal=petal_status))
             led.config(text=led_text.format(led=b_status))
-            
             root.update()
 
             # Publish to mqtt 
-            client = connect_mqtt()
             client.loop_start()
             publish(client)
             client.loop_stop()
